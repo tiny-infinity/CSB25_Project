@@ -3,3 +3,5 @@ RACIPE_data/
 .env
 .vscode/
 junk_files/
+.DS_store
+
