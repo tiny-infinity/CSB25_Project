@@ -4,4 +4,4 @@ RACIPE_data/
 .vscode/
 junk_files/
 .DS_store
-
+__pycache__/
