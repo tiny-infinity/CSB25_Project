@@ -1,6 +1,6 @@
 from RACIPE_parser import convert_dat_to_csv, batch_process_racipe_directory
 import pandas as pd
-batch_process_racipe_directory("/Users/govindrnair/CSB_EnergyLandscape",'/Users/govindrnair/CSB_EnergyLandscape')
+batch_process_racipe_directory("/Users/govindrnair/CSB_EnergyLandscape/RACIPE_data",'/Users/govindrnair/CSB_EnergyLandscape/RACIPE_data')
 
 """
 RACIPE generates outputs in the form of .dat files, which have parameters/steady state values in different columns.

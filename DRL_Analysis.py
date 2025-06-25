@@ -17,9 +17,11 @@ from sympy import symbols, Matrix, lambdify, pprint
 from scipy.optimize import minimize, root, Bounds
 from scipy.interpolate import interp1d
 from scipy.ndimage import map_coordinates
-from action_solver import *
+import action_solver
 from define_system import *
 from visualizer import *
+import define_system
+import covariance_module as gcov
 # --- Actual Data Loading ---
 try:
     from make_sense_of_RACIPE import steady_states, parameter_set
@@ -44,10 +46,10 @@ def _project_vectors(vectors, transformation_matrix):
 def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1, grid_resolution=2000, padding_factor=1.2, 
                      visualize=False,
                      # --- PARAMETERS ALIGNED WITH MATLAB & ROBUSTNESS ---
-                     N_points=30,     # MATLAB: params.N = 60
-                     T_max=50,       # MATLAB: params.TMax = 1
-                     k_steps=2,      # Increased for more controlled relaxation
-                     c_param=1e10):   # MATLAB: params.c = 1e18
+                     N_points=60,     # MATLAB: params.N = 60
+                     T_max=30.0,       # MATLAB: params.TMax = 1
+                     k_steps=50,      # Increased for more controlled relaxation
+                     c_param=1e18):   # MATLAB: params.c = 1e18
     
     print(f"\n--- Starting DRL/AMAM Analysis for Network: '{network_name}', Param ID: {param_id} ---")
     
@@ -71,12 +73,12 @@ def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1
     
     # 4. Generate symbolic ODEs
     gene_symbols = symbols(node_list)
-    system_odes = _generate_odes(adjacency_matrix, gene_symbols, network_params)
+    system_odes = define_system._generate_odes(adjacency_matrix, gene_symbols, network_params)
     for ode in system_odes:
         pprint(ode)
     
     # 5. Calculate global covariance using polished states
-    sigma_global, local_sigmas, stable_vectors, stable_freqs = _global_covariance_matrix(
+    sigma_global, local_sigmas, stable_vectors, stable_freqs = gcov._global_covariance_matrix(
         polished_ss_vectors, polished_freqs, num_dims, system_odes, gene_symbols, d_value=d_coefficient
     )
     
@@ -120,22 +122,22 @@ def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1
         if visualize: visualize_landscape(U, X_grid, Y_grid, projected_ss, None, None, None, None)
         return None
 
-    drift_function = _generate_drift_function(system_odes, gene_symbols)
+    drift_function = define_system._generate_drift_function(system_odes, gene_symbols)
     
     print("\nCalculating path from State A to State B...")
-    map_a_to_b, time_mesh_ab = aMAM_advanced_solver(
+    map_a_to_b, time_mesh_ab = action_solver.aMAM_advanced_solver(
         drift_function, stable_vectors[0], stable_vectors[1], N=N_points, T_max=T_max, k_max=k_steps, c=c_param, initial_path='log'
     )
     print("\nCalculating path from State B to State A...")
-    map_b_to_a, time_mesh_ba = aMAM_advanced_solver(
+    map_b_to_a, time_mesh_ba = action_solver.aMAM_advanced_solver(
         drift_function, stable_vectors[1], stable_vectors[0], N=N_points, T_max=T_max, k_max=k_steps, c=c_param, initial_path='log'
     )
 
     
     plot_path_diagnostics(map_a_to_b, time_mesh_ab, map_b_to_a, time_mesh_ba)
     
-    action_a_to_b = _action_cost(map_a_to_b, time_mesh_ab, drift_function)
-    action_b_to_a = _action_cost(map_b_to_a, time_mesh_ba, drift_function)
+    action_a_to_b = action_solver._action_cost(map_a_to_b, time_mesh_ab, drift_function)
+    action_b_to_a = action_solver._action_cost(map_b_to_a, time_mesh_ba, drift_function)
     
     proj_path_ab = _project_vectors([np.log2(np.maximum(p, 1e-12)) for p in map_a_to_b], V)
     proj_path_ba = _project_vectors([np.log2(np.maximum(p, 1e-12)) for p in map_b_to_a], V)
@@ -172,14 +174,13 @@ if  __name__ == '__main__':
                     [1,0,-1,-1],
                     [-1,-1,0,1],
                     [-1,-1,1,0]]
-        adj_matrix=[[1,-1],[-1,1]]
-        param_id_to_test = 42
+        param_id_to_test = 638
 
         results = run_drl_analysis(
-            network_name="MISA", 
+            network_name="four_node_team", 
             adjacency_matrix=adj_matrix, 
             param_id=param_id_to_test, 
-            d_coefficient=0.05, 
+            d_coefficient=0.1, 
             visualize=True
         )
         
@@ -197,11 +198,11 @@ def simulating_kinetics(T, init_conds):
     all_params = parameter_set("MISA")
     sample_params = all_params.loc[5] 
     gene_vars = symbols(['A', 'B'])
-    sample_odes = _generate_odes([[1,-1],[-1,1]], gene_vars, sample_params)
+    sample_odes = define_system._generate_odes([[1,-1],[-1,1]], gene_vars, sample_params)
     print("System ODEs:")
     for ode in sample_odes:
         pprint(ode)
-    sample_drift_func = _generate_drift_function(sample_odes, gene_vars)
+    sample_drift_func = define_system._generate_drift_function(sample_odes, gene_vars)
     def ode_system(t, y):
         return sample_drift_func(y)
     t_span = (0, T)

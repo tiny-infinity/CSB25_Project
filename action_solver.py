@@ -112,6 +112,7 @@ def aMAM_advanced_solver(f_drift, x0, x1, N, T_max, k_max, c, qmin=3.0, phi_init
     num_internal_points = N - 2
 
     # --- TIGHTENED BOUNDS: restrict to a region around the endpoints ---
+    """
     lower_bound_vec = np.minimum(x0, x1) * 0.1
     upper_bound_vec = np.maximum(x0, x1) * 10
     # Ensure strictly positive and not exceeding a reasonable max
@@ -121,7 +122,7 @@ def aMAM_advanced_solver(f_drift, x0, x1, N, T_max, k_max, c, qmin=3.0, phi_init
     for _ in range(num_internal_points):
         for lb, ub in zip(lower_bound_vec, upper_bound_vec):
             bounds.append((lb, ub))
-
+    """
     optimizer_options = {'maxiter': 300, 'disp': False, 'ftol': 1e-15, 'gtol': 1e-8, 'maxcor': 10}
 
     for k in range(k_max):
@@ -129,7 +130,7 @@ def aMAM_advanced_solver(f_drift, x0, x1, N, T_max, k_max, c, qmin=3.0, phi_init
         objective_func = lambda p: _action_S(p, time_mesh, M_dims, f_drift, x0, x1)
         phi_internal_flat = phi[:, 1:-1].flatten()
         result = minimize(objective_func, phi_internal_flat, method='L-BFGS-B',
-                          bounds=bounds, options=optimizer_options)
+                         options=optimizer_options)
         phi_optimized_internal = result.x.reshape((M_dims, num_internal_points))
         phi_optimized = np.column_stack((x0, phi_optimized_internal, x1))
         w = _monitor_function(phi_optimized, time_mesh, c)
