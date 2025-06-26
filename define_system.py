@@ -30,7 +30,6 @@ def _generate_odes(adjacency_matrix, gene_symbols, params_row):
                     reg_strength = K_n_neg / (x_n_neg + K_n_neg)
                     regulation_product *= l + (1.0 - l) * reg_strength
         ode = production_term * regulation_product - degradation_term
-        print(ode)
         odes.append(ode)
     return odes
 

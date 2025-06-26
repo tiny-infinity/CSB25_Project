@@ -44,7 +44,7 @@ def visualize_landscape(U, X_grid, Y_grid, projected_ss, saddle_coords_ab, proj_
     plt.gca().set_aspect('equal', 'box')
     plt.show()
 
-def plot_path_diagnostics(map_a_to_b, time_mesh_ab, map_b_to_a, time_mesh_ba, var_names=['A', 'B','C','D']):
+def plot_path_diagnostics(map_a_to_b, time_mesh_ab, map_b_to_a, time_mesh_ba, var_names=['A', 'B']):
         dims=len(var_names)
         fig, ax = plt.subplots(1,2, figsize=(6,6))
         fig.suptitle('Minimum Action Path Diagnostic Plots', fontsize=16)

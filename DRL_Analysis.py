@@ -22,6 +22,7 @@ from define_system import *
 from visualizer import *
 import define_system
 import covariance_module as gcov
+
 # --- Actual Data Loading ---
 try:
     from make_sense_of_RACIPE import steady_states, parameter_set
@@ -44,7 +45,7 @@ def _project_vectors(vectors, transformation_matrix):
 
 
 def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1, grid_resolution=2000, padding_factor=1.2, 
-                     visualize=False,
+                     visualize=False, node_list=['A','B'],
                      # --- PARAMETERS ALIGNED WITH MATLAB & ROBUSTNESS ---
                      N_points=60,     # MATLAB: params.N = 60
                      T_max=30.0,       # MATLAB: params.TMax = 1
@@ -55,7 +56,6 @@ def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1
     
     # 1. Load data from RACIPE
     num_dims = len(adjacency_matrix)
-    node_list = [list(string.ascii_uppercase)[i] for i in range(num_dims)]
     
     full_ss_df = steady_states(network_name, node_list)
     racipe_df_subset = full_ss_df.loc[full_ss_df['PS.No'] == param_id]
@@ -117,10 +117,15 @@ def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1
     U = -np.log(np.maximum(P, 1e-100))
     print("Potential energy landscape constructed.")
 
-    # --- 4. CALCULATE MINIMUM ACTION PATHS ---
-    if len(stable_vectors) != 2:
-        if visualize: visualize_landscape(U, X_grid, Y_grid, projected_ss, None, None, None, None)
+    if len(stable_vectors) < 2:
+        print("Fewer than two stable states found. Cannot calculate transition paths.")
+        if visualize:
+            # The visualizer is called with no path information.
+            visualize_landscape(U, X_grid, Y_grid, projected_ss, None, None, None, None)
         return None
+
+    # If 2 or more states are found, proceed to calculate the path between the first two.
+    print(f"\n{len(stable_vectors)} stable states found. Calculating path between the first two.")
 
     drift_function = define_system._generate_drift_function(system_odes, gene_symbols)
     
@@ -134,7 +139,7 @@ def run_drl_analysis(network_name, adjacency_matrix, param_id, d_coefficient=0.1
     )
 
     
-    plot_path_diagnostics(map_a_to_b, time_mesh_ab, map_b_to_a, time_mesh_ba)
+    plot_path_diagnostics(map_a_to_b, time_mesh_ab, map_b_to_a, time_mesh_ba,var_names=node_list)
     
     action_a_to_b = action_solver._action_cost(map_a_to_b, time_mesh_ab, drift_function)
     action_b_to_a = action_solver._action_cost(map_b_to_a, time_mesh_ba, drift_function)
@@ -174,10 +179,11 @@ if  __name__ == '__main__':
                     [1,0,-1,-1],
                     [-1,-1,0,1],
                     [-1,-1,1,0]]
-        param_id_to_test = 638
+        adj_matrix=[[1,-1],[-1,1]]
+        param_id_to_test = 145
 
         results = run_drl_analysis(
-            network_name="four_node_team", 
+            network_name="MISA", 
             adjacency_matrix=adj_matrix, 
             param_id=param_id_to_test, 
             d_coefficient=0.1, 

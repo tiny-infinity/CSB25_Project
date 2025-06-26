@@ -1,0 +1,17 @@
+Parameter,Minimum_value,Maximum_Value,Regulation_type
+Prod_of_A,1.0,100.0,0
+Prod_of_B,1.0,100.0,0
+Deg_of_A,0.1,1.0,0
+Deg_of_B,0.1,1.0,0
+Trd_of_BToA,0.180528,17.872254,0
+Num_of_BToA,1.0,6.0,0
+Inh_of_BToA,1.0,100.0,2
+Trd_of_AToA,0.187899,18.60205,0
+Num_of_AToA,1.0,6.0,0
+Act_of_AToA,1.0,100.0,1
+Trd_of_AToB,0.187899,18.60205,0
+Num_of_AToB,1.0,6.0,0
+Inh_of_AToB,1.0,100.0,2
+Trd_of_BToB,0.180528,17.872254,0
+Num_of_BToB,1.0,6.0,0
+Act_of_BToB,1.0,100.0,1
