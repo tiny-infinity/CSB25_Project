@@ -1,5 +1,5 @@
 # Project : Analysing transitions between phenotypic states of cellular networks
-This is the JuPyter notebook for my summer project at the Cancer Systems Biology laboratory @ IISc. The broad objective is to analyse transitions between states in various multi-stable systems.
+This is the repository for my summer project at the Cancer Systems Biology laboratory @ IISc. The broad objective is to analyse transitions between states in various multi-stable systems.
 
 Updates and other details about the project can be found [here](https://docs.google.com/presentation/d/1Wb02X7PI-c182syrV49iUH8WHvz6C3KffE5MbGOBU-U/edit?slide=id.g35cf70c6234_0_0#slide=id.g35cf70c6234_0_0).
 
