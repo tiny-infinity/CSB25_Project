@@ -4,6 +4,7 @@ from sympy import symbols, lambdify
 from scipy.spatial.distance import jensenshannon
 from make_sense_of_RACIPE import parameter_set, steady_states
 import matplotlib.pyplot as plt
+from multiprocessing import Pool, cpu_count
 # --- Helper Functions for Rate Generation ---
 # (These are the corrected versions from our previous discussion)
 
@@ -67,9 +68,11 @@ def simulate_chemical_langevin(production_funcs, degradation_funcs, initial_stat
         deg_rand = np.random.normal(size=num_dimensions)
         prod_noise = np.sqrt(prod_rates) * prod_rand * sqrt_dt
         deg_noise = np.sqrt(deg_rates) * deg_rand * sqrt_dt
-        current_state += drift + prod_noise - deg_noise
+        noise=np.sqrt(prod_rates+deg_rates)*prod_rand*sqrt_dt
+        current_state += drift + noise
         trajectory[i + 1] = current_state
     return time_points, trajectory
+
 
 # --- New Modular Analysis Function ---
 
@@ -138,79 +141,95 @@ def analyze_trajectory_divergence(
     js_divergence_sq = jensenshannon(P, Q, base=2)**2
     return js_divergence_sq
 
+def run_analysis_for_param(task_dict):
+    """
+    Worker function that unpacks a dictionary and runs the main analysis.
+    This is what each parallel process will execute.
+    """
+    param_id = task_dict['param_id']
+    print(f"  Starting analysis for Parameter Set ID: {param_id}")
+    
+    jsd = analyze_trajectory_divergence(
+        param_set=task_dict['param_set'],
+        ss_data=task_dict['ss_data'],
+        node_list=task_dict['node_list'],
+        adjacency_matrix=task_dict['adjacency_matrix']
+    )
+    
+    # Each realisation returns its own result
+    return {'param_id': param_id, 'realisation': task_dict['realisation'], 'JSD': jsd}
+"""
+adj_matrix=[[1,-1],[-1,1]]
+nodes=symbols('A,B')
+dummy_params=parameter_set("MISA")[parameter_set('MISA')['PS.No']==50]
+init_states=[10,100]
+prod_funcs=_generate_production_lambdas(adj_matrix,nodes,dummy_params)
+deg_funcs=_generate_degradation_lambdas(adj_matrix,dummy_params)
 
-# --- Example High-Throughput Analysis Loop ---
-
-# --- Main Execution Block for Multiple Parameter Sets and Realisations ---
-
-sample_data = pd.read_csv("jsd_multiple_parameter_sets.csv")
-
-plt.hist(sample_data['JSD'],bins=np.linspace(0,1,20))
-
+time_array,traj=simulate_chemical_langevin(prod_funcs,deg_funcs,init_states,10000,0.01)
+plt.plot(time_array.traj[:,0])
+plt.plot(time_array.traj[:,1])
 plt.show()
-if not __name__ == '__main__':
+"""
+# --- MODIFIED Main Execution Block for Parallel Processing ---
+if   __name__ == '__main__':
     # 1. Define network properties
     network_name = "MISA"
-    nodes = ['A', 'B']
-    adj_matrix = [[1, -1], [-1, 1]]
+    nodes = ['A', 'B','C','D']
+    adj_matrix = [[0,1,-1,-1],
+                  [1,0,-1,-1],
+                  [-1,-1,0,1],
+                  [-1,-1,1,0]]
+    adj_matrix=[[1,-1],[-1,1]]
+    nodes=['A','B']
     NUM_REALISATIONS = 10
 
     # 2. Load all parameters and steady states once
     all_params = parameter_set(network_name)
     all_ss = steady_states(network_name, nodes)
 
-    # 3. List to store the results from all runs
-    all_results_list = []
-
-    # 4. Outer Loop: Iterate through each parameter set you want to test
-    # As an example, we'll test the first 5 unique parameter IDs.
-    # To run for all, you can change this to: for param_id in all_params['PS.No'].unique():
-    for param_id in all_params[all_params['No.of SS']==2]['PS.No'][1:10]:
-        print(f"--- Processing Parameter Set ID: {param_id} ---")
-
-        # Get the specific parameter set and its corresponding steady states
+    # 3. Create a list of all tasks to be executed
+    tasks = []
+    # Using the first 5 unique parameter IDs as an example
+    for param_id in all_params[all_params['No.of SS']==2]['PS.No'][1:2]:
         current_params = all_params[all_params['PS.No'] == param_id].iloc[0]
         current_ss = all_ss[all_ss['PS.No'] == param_id]
 
-        # Check if there are enough steady states before starting realisations
-        if len(current_ss) < 2:
-            print(f"  Skipping Param ID {param_id}: Fewer than 2 steady states found.")
-            continue
-            
-        # 5. Inner Loop: Run multiple realisations for the current parameter set
+        # Add a task for each realisation of this parameter set
         for i in range(NUM_REALISATIONS):
-            print(f"  ...Running Realisation {i + 1}/{NUM_REALISATIONS}")
-
-            # Call the modular function to get the JSD for this single realisation
-            jsd = analyze_trajectory_divergence(
-                param_set=current_params,
-                ss_data=current_ss,
-                node_list=nodes,
-                adjacency_matrix=adj_matrix
-            )
-            
-            # Store the result, including the parameter ID and realisation number
-            result_record = {
+            task = {
                 'param_id': param_id,
                 'realisation': i + 1,
-                'JSD': jsd
+                'param_set': current_params,
+                'ss_data': current_ss,
+                'node_list': nodes,
+                'adjacency_matrix': adj_matrix
             }
-            all_results_list.append(result_record)
+            tasks.append(task)
+            
+    # 4. Use a multiprocessing Pool to execute tasks in parallel
+    # Use all available CPU cores
+    num_cores = cpu_count()
+    print(f"\n--- Starting parallel analysis on {num_cores} cores ---")
+    
+    with Pool(processes=num_cores) as pool:
+        # pool.map distributes the 'tasks' list to the 'run_analysis_for_param' function
+        # across the available cores. It blocks until all results are ready.
+        all_results_list = pool.map(run_analysis_for_param, tasks)
 
-    # 6. After all loops are finished, create and save the final DataFrame
+    # 5. After all parallel tasks are done, create and save the final DataFrame
     if all_results_list:
         results_df = pd.DataFrame(all_results_list)
+        results_df.sort_values(by=['param_id', 'realisation'], inplace=True)
 
         print("\n--- Final JSD Results (All Runs) ---")
-        print(results_df.to_string()) # .to_string() prints the whole DataFrame
+        print(results_df.to_string())
 
-        # You can also calculate summary statistics for each parameter set
         summary_df = results_df.groupby('param_id')['JSD'].agg(['mean', 'std', 'count']).reset_index()
         print("\n--- Summary Statistics per Parameter ID ---")
         print(summary_df)
 
-        # Save the detailed results to a .csv file
-        output_filename = "jsd_multiple_parameter_sets.csv"
+        output_filename = "jsd_parallel_analysis.csv"
         results_df.to_csv(output_filename, index=False)
         print(f"\nDetailed results saved to {output_filename}")
     else:

@@ -1,4 +1,4 @@
-RACIPE_data/
+
 *.pyc
 .env
 .vscode/
