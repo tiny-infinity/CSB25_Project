@@ -88,10 +88,43 @@ def topo_to_adj(topo_filename):
         print(adj_matrix[i])       
     return adj_matrix,node_list
         
+four_node_networks=[]
 
-if __name__ == "__main__":
-    save_topo([[1,-1],[-1,1]],['A','B'],"joe")
-    topo_to_adj("joe.topo")
+four_node_full = [[0,1,-1,-1],
+                  [1,0,-1,-1],
+                  [-1,-1,0,1],
+                  [-1,-1,1,0]]
+
+four_node_strip1 = [[0,1,-1,-1],
+                  [1,0,0,-1],
+                  [-1,0,0,1],
+                  [-1,-1,1,0]]
+
+four_node_strip2 = [[0,1,-1,0],
+                  [1,0,0,-1],
+                  [-1,0,0,1],
+                  [0,-1,1,0]]
+
+four_node_strip3 = [[0,0,-1,-1],
+                  [1,0,-1,-1],
+                  [-1,-1,0,1],
+                  [-1,-1,0,0]]
+
+four_node_strip4 = [[0,1,-1,0],
+                  [1,0,0,-1],
+                  [-1,0,0,1],
+                  [0,-1,1,0]]
+
+four_node_networks.append(four_node_full)
+four_node_networks.append(four_node_strip1)
+four_node_networks.append(four_node_strip2)
+four_node_networks.append(four_node_strip3)
+four_node_networks.append(four_node_strip4)
+
+if __name__ == '__main__':
+    for i in range(len(four_node_networks)):
+        save_topo(four_node_networks[i],['A1','A2','B1','B2'],f"{i}_four_node")
+
 
 
 

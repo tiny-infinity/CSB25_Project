@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
-from sympy import symbols, lambdify
+from sympy import symbols, lambdify,pprint
 from scipy.spatial.distance import jensenshannon
 from make_sense_of_RACIPE import parameter_set, steady_states
 import matplotlib.pyplot as plt
+import network_generator
 # --- Helper Functions for Rate Generation ---
 # (These are the corrected versions from our previous discussion)
 
@@ -12,23 +13,23 @@ def _generate_production_lambdas(adjacency_matrix, gene_symbols, params_row):
     production_odes = []
     for i in range(len(gene_symbols)):
         regulated_gene = gene_symbols[i]
-        production_term = float(params_row.get(f'Prod_of_{regulated_gene.name}', 50.0))
+        production_term = float(params_row.get('g', 50.0))
         regulation_product = 1
         for j in range(len(gene_symbols)):
             regulation_type = adjacency_matrix[i][j]
             if regulation_type != 0:
                 regulator_gene = gene_symbols[j]
-                param_prefix = f'of_{regulator_gene.name}To{regulated_gene.name}'
-                s = float(params_row.get(f'Trd_{param_prefix}', 16.0))
-                n = float(params_row.get(f'Num_{param_prefix}', 4.0))
+                param_prefix = f'{regulator_gene.name}to{regulated_gene.name}'
+                s = float(params_row.get(f'thrs_{param_prefix}', 16.0))
+                n = float(params_row.get(f'n', 4.0))
                 if regulation_type > 0:
-                    l = float(params_row.get(f'Act_{param_prefix}', 10.0))
+                    l = float(params_row.get(f'lambda_pos', 10.0))
                     K_n_pos = s**n
                     x_n_pos = regulator_gene**n
                     numerator = l + (1.0 - l) * (K_n_pos / (x_n_pos + K_n_pos))
                     regulation_product *= numerator / l
                 elif regulation_type < 0:
-                    l = float(params_row.get(f'Inh_{param_prefix}', 0.1))
+                    l = float(params_row.get(f'lambda_neg', 0.1))
                     K_n_neg = s**n
                     x_n_neg = regulator_gene**n
                     reg_strength = K_n_neg / (x_n_neg + K_n_neg)
@@ -42,7 +43,7 @@ def _generate_degradation_lambdas(gene_symbols, params_row):
     degradation_odes = []
     for i in range(len(gene_symbols)):
         regulated_gene = gene_symbols[i]
-        k_deg = float(params_row.get(f'Deg_of_{regulated_gene.name}', 1.0))
+        k_deg = float(params_row.get(f'k', 1.0))
         degradation_odes.append(k_deg * regulated_gene)
     degradation_lambdas = [lambdify(tuple(gene_symbols), ode, 'numpy') for ode in degradation_odes]
     return degradation_lambdas
@@ -138,26 +139,20 @@ def analyze_trajectory_divergence(
     js_divergence_sq = jensenshannon(P, Q, base=2)**2
     return js_divergence_sq
 
+sample_params=pd.read_csv("1_four_node_parameters.csv")
+params_row=sample_params[sample_params['para_indx']==1]
+funcs=_generate_production_lambdas([[1,-1],[-1,1]],symbols(['A','B']),params_row)
+pprint(funcs)
 
-# --- Example High-Throughput Analysis Loop ---
-
-# --- Main Execution Block for Multiple Parameter Sets and Realisations ---
-
-sample_data = pd.read_csv("jsd_multiple_parameter_sets.csv")
-
-plt.hist(sample_data['JSD'],bins=np.linspace(0,1,20))
-
-plt.show()
-if not __name__ == '__main__':
+if __name__ == '__main__':
     # 1. Define network properties
-    network_name = "MISA"
-    nodes = ['A', 'B']
-    adj_matrix = [[1, -1], [-1, 1]]
+    network_name = "0_four_node"
+    adj_matrix,nodes = network_generator.topo_to_adj("0_four_node.topo")
     NUM_REALISATIONS = 10
 
     # 2. Load all parameters and steady states once
-    all_params = parameter_set(network_name)
-    all_ss = steady_states(network_name, nodes)
+    all_params = pd.read_csv(f'{network_name}_parameters.csv')
+    all_ss = pd.read_csv(f'{network_name}_solution.csv')
 
     # 3. List to store the results from all runs
     all_results_list = []
@@ -165,12 +160,12 @@ if not __name__ == '__main__':
     # 4. Outer Loop: Iterate through each parameter set you want to test
     # As an example, we'll test the first 5 unique parameter IDs.
     # To run for all, you can change this to: for param_id in all_params['PS.No'].unique():
-    for param_id in all_params[all_params['No.of SS']==2]['PS.No'][1:10]:
+    for param_id in all_params['para_indx'].unique()[1:3]:
         print(f"--- Processing Parameter Set ID: {param_id} ---")
 
         # Get the specific parameter set and its corresponding steady states
-        current_params = all_params[all_params['PS.No'] == param_id].iloc[0]
-        current_ss = all_ss[all_ss['PS.No'] == param_id]
+        current_params = all_params[all_params['para_indx'] == param_id].iloc[0]
+        current_ss = all_ss[all_ss['para_indx'] == param_id]
 
         # Check if there are enough steady states before starting realisations
         if len(current_ss) < 2:
